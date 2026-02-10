@@ -4,8 +4,8 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "@/src/lib/firebase/client";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "../../../lib/firebase/client";
 
 export default function DashboardPage() {
   const router = useRouter();
