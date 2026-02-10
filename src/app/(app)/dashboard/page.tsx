@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "../../../lib/firebase/client";
+import { getFirebaseAuth } from "../../../lib/firebase/client";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -13,11 +13,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const auth = getFirebaseAuth();
+
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
       if (!u) router.replace("/login");
     });
+
     return () => unsub();
   }, [router]);
 
@@ -37,6 +40,13 @@ export default function DashboardPage() {
       <p className="mt-2 text-neutral-700">
         Přihlášen jako: <span className="font-medium">{user.email}</span>
       </p>
+
+      <button
+        className="mt-6 rounded-xl border border-neutral-300 px-4 py-2"
+        onClick={() => router.push("/paywall")}
+      >
+        Paywall
+      </button>
     </div>
   );
 }
