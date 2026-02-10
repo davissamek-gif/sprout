@@ -1,0 +1,18 @@
+env:
+  - variable: STRIPE_SECRET_KEY
+    secret: STRIPE_SECRET_KEY
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: STRIPE_PRICE_ID
+    secret: STRIPE_PRICE_ID
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_APP_URL
+    value: "https://sprout--sprout-2643a.europe-west4.hosted.app"
+    availability:
+      - BUILD
+      - RUNTIME
