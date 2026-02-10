@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  @apply bg-white text-neutral-900;
+}
+
+.card {
+  @apply rounded-2xl border border-neutral-200 bg-white shadow-sm;
+}
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium transition;
+}
+.btn-primary {
+  @apply bg-neutral-900 text-white hover:bg-neutral-800;
+}
+.btn-ghost {
+  @apply bg-transparent hover:bg-neutral-100;
+}
+.input {
+  @apply w-full rounded-xl border border-neutral-200 px-3 py-2 outline-none focus:ring-2 focus:ring-neutral-900/20;
+}
+.badge {
+  @apply inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs text-neutral-700;
+}
