@@ -1,139 +1,101 @@
 "use client";
 
-import { useState } from "react";
+export const dynamic = "force-dynamic";
+
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signUpWithEmail } from "../../../lib/auth";
-import { createUserProfile } from "../../../lib/users";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { getFirebaseAuth, getFirebaseDb } from "../../../lib/firebase/client";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
-  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
+  const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setMounted(true), []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    setErr(null);
     setLoading(true);
 
-    console.log("SUBMIT register", { email, displayName });
-
     try {
-      const user = await signUpWithEmail(
-        email.trim(),
-        password,
-        displayName.trim()
-      );
+      const auth = getFirebaseAuth();
+      const db = getFirebaseDb();
 
-      console.log("REGISTER OK uid:", user.uid);
+      const res = await createUserWithEmailAndPassword(auth, email, password);
+      console.log("REGISTER OK uid:", res.user.uid);
 
-      // Create Firestore profile with 3-day trial
-      await createUserProfile({ uid: user.uid, email: user.email ?? null });
+      await setDoc(doc(db, "users", res.user.uid), {
+        uid: res.user.uid,
+        email: res.user.email ?? email,
+        createdAt: serverTimestamp(),
+        plan: "free",
+      });
+
       console.log("PROFILE CREATED in Firestore");
-
-      router.push("/dashboard");
-    } catch (err: any) {
-      console.error("REGISTER ERROR:", err);
-
-      const msg =
-        err?.code === "auth/email-already-in-use"
-          ? "Tenhle email už je zaregistrovaný."
-          : err?.code === "auth/weak-password"
-          ? "Heslo je moc slabé. Zkus aspoň 6 znaků."
-          : err?.code === "auth/invalid-email"
-          ? "Email není ve správném formátu."
-          : err?.message
-          ? `Chyba: ${err.message}`
-          : "Registrace se nepovedla. Zkus to znovu.";
-
-      setError(msg);
+      router.replace("/paywall");
+    } catch (e: any) {
+      console.error("REGISTER ERROR:", e);
+      setErr(e?.message ?? "Register failed");
     } finally {
       setLoading(false);
     }
   }
 
+  if (!mounted) return null;
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-black/10 bg-white/70 backdrop-blur p-6 shadow-sm">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold">Vytvořit účet</h1>
-          <p className="text-sm text-black/60 mt-1">
-            Sprout 🌱 — soukromý prostor pro společný život.
-          </p>
-          <p className="text-xs text-black/50 mt-2">
-            Prvních <span className="font-medium">3 dny zdarma</span>, potom 69
-            Kč / měsíc.
-          </p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-semibold">Register</h1>
+        <p className="mt-1 text-sm text-neutral-600">Sprout 🌱</p>
 
-        {error && (
-          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        <form onSubmit={onSubmit} className="mt-6 space-y-3">
+          <input
+            className="w-full rounded-xl border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-500"
+            placeholder="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            className="w-full rounded-xl border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-500"
+            placeholder="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Jméno (volitelné)</label>
-            <input
-              className="mt-1 w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-black/10"
-              placeholder="např. Kuba"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              autoComplete="name"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Email</label>
-            <input
-              className="mt-1 w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-black/10"
-              placeholder="kuba@email.cz"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              inputMode="email"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Heslo</label>
-            <input
-              className="mt-1 w-full rounded-xl border border-black/10 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-black/10"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={6}
-            />
-            <p className="mt-1 text-xs text-black/50">Minimálně 6 znaků.</p>
-          </div>
+          {err && (
+            <div className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+              {err}
+            </div>
+          )}
 
           <button
-            type="submit"
+            className="w-full rounded-xl bg-neutral-900 px-3 py-2 text-white disabled:opacity-60"
             disabled={loading}
-            className="w-full rounded-xl bg-black px-4 py-3 text-white font-medium disabled:opacity-60"
+            type="submit"
           >
-            {loading ? "Vytvářím účet..." : "Pokračovat"}
+            {loading ? "Creating…" : "Create account"}
           </button>
-        </form>
 
-        <div className="mt-6 text-sm text-black/60">
-          Už máš účet?{" "}
           <button
-            className="text-black underline underline-offset-4"
+            className="w-full rounded-xl border border-neutral-300 px-3 py-2"
+            type="button"
             onClick={() => router.push("/login")}
           >
-            Přihlásit se
+            I already have an account
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

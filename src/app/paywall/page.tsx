@@ -1,101 +1,84 @@
 "use client";
 
-import { useState } from "react";
+export const dynamic = "force-dynamic";
+
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signOutUser } from "../../lib/auth";
+import { onAuthStateChanged } from "firebase/auth";
+import { getFirebaseAuth } from "../../lib/firebase/client";
 
 export default function PaywallPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [uid, setUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
-  async function handleLogout() {
-    await signOutUser();
-    router.replace("/");
-  }
+  useEffect(() => {
+    setMounted(true);
+    const auth = getFirebaseAuth();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (!u) {
+        router.replace("/login");
+        return;
+      }
+      setUid(u.uid);
+    });
+    return () => unsub();
+  }, [router]);
 
-  async function handleGoToCheckout() {
-    setError(null);
+  async function startCheckout() {
+    setErr(null);
     setLoading(true);
-
     try {
-      const res = await fetch("/api/checkout", { method: "POST" });
-      if (!res.ok) throw new Error("Checkout request failed");
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uid }),
+      });
 
       const data = await res.json();
-      if (!data?.url) throw new Error("Missing checkout URL");
+      if (!res.ok) throw new Error(data?.error ?? "Checkout failed");
+      if (!data?.url) throw new Error("Missing checkout url");
 
       window.location.href = data.url;
     } catch (e: any) {
       console.error(e);
-      setError("Nepovedlo se otevřít platbu. Zkus to prosím znovu.");
+      setErr(e?.message ?? "Checkout failed");
       setLoading(false);
     }
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-lg rounded-3xl border border-black/10 bg-white/80 backdrop-blur p-8 shadow-sm">
-        <div className="text-center">
-          <div className="text-4xl mb-4">🌱</div>
-          <h1 className="text-2xl font-semibold">Trial skončil</h1>
-          <p className="mt-3 text-black/70">
-            Děkujeme, že jsi vyzkoušel <span className="font-medium">Sprout</span>.
-            Teď je čas pokračovat a odemknout celý společný prostor.
-          </p>
-        </div>
+  if (!mounted) return null;
 
-        {error && (
-          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-semibold">Sprout Pro</h1>
+        <p className="mt-2 text-sm text-neutral-700">
+          3 dny zdarma, potom 69 Kč / měsíc. 10% jde na charity 🌱
+        </p>
+
+        {err && (
+          <div className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+            {err}
           </div>
         )}
 
-        <div className="mt-8 space-y-4">
-          <div className="rounded-2xl border border-black/10 bg-white p-5">
-            <h2 className="font-semibold">Co získáš</h2>
-            <ul className="mt-3 space-y-2 text-sm text-black/70">
-              <li>• Společný plánovač a kalendář</li>
-              <li>• Mapy, místa a trasy</li>
-              <li>• Krásný společný deník a archiv</li>
-              <li>• Statistiky a sdílené profily</li>
-              <li>• Eco & vegan-friendly komunita</li>
-            </ul>
-          </div>
+        <button
+          className="mt-6 w-full rounded-xl bg-neutral-900 px-3 py-2 text-white disabled:opacity-60"
+          onClick={startCheckout}
+          disabled={loading || !uid}
+        >
+          {loading ? "Opening Stripe…" : "Start free trial"}
+        </button>
 
-          <div className="rounded-2xl border border-black/10 bg-white p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-black/60">Cena</p>
-                <p className="text-xl font-semibold">69 Kč / měsíc</p>
-              </div>
-              <div className="text-xs text-black/50 text-right">
-                10 % věnujeme<br />na charitu 🌍
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8 space-y-3">
-          <button
-            onClick={handleGoToCheckout}
-            disabled={loading}
-            className="w-full rounded-2xl bg-black px-6 py-4 text-white font-medium disabled:opacity-60"
-          >
-            {loading ? "Otevírám platbu…" : "Pokračovat na platbu"}
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="w-full rounded-2xl border border-black/10 bg-white px-6 py-3 text-sm"
-          >
-            Odhlásit se
-          </button>
-        </div>
-
-        <p className="mt-6 text-center text-xs text-black/50">
-          Můžeš se kdykoliv vrátit. Žádné skryté poplatky.
-        </p>
+        <button
+          className="mt-3 w-full rounded-xl border border-neutral-300 px-3 py-2"
+          onClick={() => router.push("/dashboard")}
+        >
+          Continue
+        </button>
       </div>
     </div>
   );
