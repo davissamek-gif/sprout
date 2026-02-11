@@ -1,52 +1,24 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { getFirebaseAuth } from "../../../lib/firebase/client";
+import Link from "next/link";
+import TodoList from "@/components/todo/TodoList";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const auth = getFirebaseAuth();
-
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-      if (!u) router.replace("/login");
-    });
-
-    return () => unsub();
-  }, [router]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-neutral-600">Loading…</p>
-      </div>
-    );
-  }
-
-  if (!user) return null;
-
   return (
-    <div className="min-h-screen p-6">
-      <h1 className="text-2xl font-semibold">Dashboard</h1>
-      <p className="mt-2 text-neutral-700">
-        Přihlášen jako: <span className="font-medium">{user.email}</span>
-      </p>
+    <div className="max-w-2xl mx-auto py-10 space-y-6">
+      <Card className="p-6 flex items-center justify-between">
+        <div>
+          <div className="text-sm text-muted-foreground">Sprout</div>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+        </div>
+        <Button asChild variant="secondary">
+          <Link href="/connect">Propojení</Link>
+        </Button>
+      </Card>
 
-      <button
-        className="mt-6 rounded-xl border border-neutral-300 px-4 py-2"
-        onClick={() => router.push("/paywall")}
-      >
-        Paywall
-      </button>
+      <TodoList />
     </div>
   );
 }

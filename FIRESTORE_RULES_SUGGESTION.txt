@@ -1,0 +1,31 @@
+Suggested Firestore rules (MVP):
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /connections/{connectionId} {
+      allow read: if request.auth != null
+                  && request.auth.uid in resource.data.members;
+
+      allow update: if request.auth != null
+                    && request.auth.uid in resource.data.members;
+
+      allow create: if request.auth != null;
+
+      match /todos/{todoId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/connections/$(connectionId)).data.members;
+      }
+    }
+
+    match /invites/{inviteId} {
+      allow create: if request.auth != null;
+      allow read, update: if request.auth != null;
+    }
+  }
+}
