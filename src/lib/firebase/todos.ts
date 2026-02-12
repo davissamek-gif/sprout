@@ -1,5 +1,3 @@
-"use client";
-
 import {
   addDoc,
   collection,
@@ -10,40 +8,69 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  where,
+  type Unsubscribe,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { getFirebaseDb } from "@/lib/firebase/client";
 
 export type Todo = {
   id: string;
   text: string;
   completed: boolean;
-  createdAt?: any;
+  createdAt?: unknown;
+  createdBy: string;
 };
 
-function todosCol(connectionId: string) {
-  return collection(db, "connections", connectionId, "todos");
+function todosColRef(workspaceId: string) {
+  const db = getFirebaseDb();
+  return collection(db, "workspaces", workspaceId, "todos");
 }
 
-export async function addTodo(text: string, connectionId: string) {
-  await addDoc(todosCol(connectionId), {
-    text,
+export function subscribeTodos(
+  workspaceId: string,
+  onTodos: (todos: Todo[]) => void,
+  onlyIncomplete?: boolean
+): Unsubscribe {
+  const col = todosColRef(workspaceId);
+
+  const q = onlyIncomplete
+    ? query(col, where("completed", "==", false), orderBy("createdAt", "desc"))
+    : query(col, orderBy("createdAt", "desc"));
+
+  return onSnapshot(q, (snap) => {
+    const todos: Todo[] = snap.docs.map((d) => {
+      const data = d.data() as Omit<Todo, "id">;
+      return { id: d.id, ...data };
+    });
+    onTodos(todos);
+  });
+}
+
+export async function addTodo(workspaceId: string, uid: string, text: string) {
+  const col = todosColRef(workspaceId);
+  const trimmed = text.trim();
+  if (!trimmed) return;
+
+  await addDoc(col, {
+    text: trimmed,
     completed: false,
+    createdBy: uid,
     createdAt: serverTimestamp(),
   });
 }
 
-export async function toggleTodo(todoId: string, completed: boolean, connectionId: string) {
-  await updateDoc(doc(db, "connections", connectionId, "todos", todoId), { completed });
+export async function toggleTodo(
+  workspaceId: string,
+  todoId: string,
+  completed: boolean
+) {
+  const db = getFirebaseDb();
+  const ref = doc(db, "workspaces", workspaceId, "todos", todoId);
+  await updateDoc(ref, { completed });
 }
 
-export async function deleteTodo(todoId: string, connectionId: string) {
-  await deleteDoc(doc(db, "connections", connectionId, "todos", todoId));
-}
-
-export function subscribeTodos(connectionId: string, cb: (todos: Todo[]) => void) {
-  const q = query(todosCol(connectionId), orderBy("createdAt", "desc"));
-  return onSnapshot(q, (snap) => {
-    const items: Todo[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
-    cb(items);
-  });
+export async function deleteTodo(workspaceId: string, todoId: string) {
+  const db = getFirebaseDb();
+  const ref = doc(db, "workspaces", workspaceId, "todos", todoId);
+  await deleteDoc(ref);
 }

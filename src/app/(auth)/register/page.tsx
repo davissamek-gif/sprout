@@ -1,102 +1,73 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
-import { useEffect, useState } from "react";
+import * as React from "react";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { getFirebaseAuth, getFirebaseDb } from "../../../lib/firebase/client";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
-    setLoading(true);
-
+    setError(null);
+    setBusy(true);
     try {
       const auth = getFirebaseAuth();
       const db = getFirebaseDb();
 
-      const res = await createUserWithEmailAndPassword(auth, email, password);
-      console.log("REGISTER OK uid:", res.user.uid);
+      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      if (name.trim()) await updateProfile(cred.user, { displayName: name.trim() });
 
-      await setDoc(doc(db, "users", res.user.uid), {
-        uid: res.user.uid,
-        email: res.user.email ?? email,
+      await setDoc(doc(db, "users", cred.user.uid), {
+        email: cred.user.email,
+        displayName: name.trim() || null,
         createdAt: serverTimestamp(),
-        plan: "free",
       });
 
-      console.log("PROFILE CREATED in Firestore");
-      router.replace("/paywall");
-    } catch (e: any) {
-      console.error("REGISTER ERROR:", e);
-      setErr(e?.message ?? "Register failed");
+      console.log("REGISTER OK uid:", cred.user.uid);
+      router.push("/dashboard");
+    } catch (err: any) {
+      console.error("REGISTER ERROR:", err);
+      setError(err?.message ?? "Register failed");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
-  if (!mounted) return null;
-
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold">Register</h1>
-        <p className="mt-1 text-sm text-neutral-600">Sprout 🌱</p>
-
-        <form onSubmit={onSubmit} className="mt-6 space-y-3">
-          <input
-            className="w-full rounded-xl border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-500"
-            placeholder="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            className="w-full rounded-xl border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-500"
-            placeholder="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-
-          {err && (
-            <div className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
-              {err}
-            </div>
-          )}
-
-          <button
-            className="w-full rounded-xl bg-neutral-900 px-3 py-2 text-white disabled:opacity-60"
-            disabled={loading}
-            type="submit"
-          >
-            {loading ? "Creating…" : "Create account"}
-          </button>
-
-          <button
-            className="w-full rounded-xl border border-neutral-300 px-3 py-2"
-            type="button"
-            onClick={() => router.push("/login")}
-          >
-            I already have an account
-          </button>
-        </form>
-      </div>
+    <div className="mx-auto flex min-h-[70vh] w-full max-w-md items-center p-6">
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Vytvořit účet</CardTitle>
+          <CardDescription>Začni tímhle – pak pozvánky do týmu a společný To‑Do.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="space-y-3">
+            <Input placeholder="Jméno (volitelné)" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
+            <Input
+              placeholder="Heslo (min. 6 znaků)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type="password"
+            />
+            {error ? <div className="text-sm text-red-600">{error}</div> : null}
+            <Button type="submit" disabled={busy || !email.trim() || password.length < 6}>
+              {busy ? "Vytvářím…" : "Registrovat"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
